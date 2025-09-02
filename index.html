@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/bot-svgrepo-com(1).svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChatBot</title>
+
+    <elevenlabs-convai agent-id="agent_6201k33dgne5fwksaz47y8dydkp4"></elevenlabs-convai>
+    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+
+    <style>
+      #debug-console {
+        position: fixed;
+        bottom: 60px;
+        right: 20px;
+        width: 400px;
+        height: 300px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #0f0;
+        padding: 10px;
+        font-family: monospace;
+        overflow: auto;
+        z-index: 1000;
+        display: none;
+        border-radius: 5px;
+      }
+      #debug-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        z-index: 1001;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="debug-console"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <!-- <script>
+      // Debug console toggle
+      document.getElementById('debug-toggle').addEventListener('click', () => {
+        const console = document.getElementById('debug-console');
+        console.style.display = console.style.display === 'none' ? 'block' : 'none';
+      });
+
+      // Override console.log to show in debug console
+      const originalConsoleLog = console.log;
+      console.log = function() {
+        const debugConsole = document.getElementById('debug-console');
+        if (debugConsole) {
+          const line = Array.from(arguments).join(' ');
+          const lineElement = document.createElement('div');
+          lineElement.textContent = line;
+          debugConsole.appendChild(lineElement);
+          debugConsole.scrollTop = debugConsole.scrollHeight;
+        }
+        originalConsoleLog.apply(console, arguments);
+      };
+
+      // Override console.error
+      const originalConsoleError = console.error;
+      console.error = function() {
+        const debugConsole = document.getElementById('debug-console');
+        if (debugConsole) {
+          const line = 'ERROR: ' + Array.from(arguments).join(' ');
+          const lineElement = document.createElement('div');
+          lineElement.style.color = 'red';
+          lineElement.textContent = line;
+          debugConsole.appendChild(lineElement);
+          debugConsole.scrollTop = debugConsole.scrollHeight;
+        }
+        originalConsoleError.apply(console, arguments);
+      };
+    </script> -->
+  </body>
+</html>
