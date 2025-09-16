@@ -124,9 +124,7 @@ const ChatInterface = () => {
     }
   }, []);
 
-  const startListening = useCallback((): void => {
-    if (!isAutoChat) return; // Don't start if auto-chat is off
-    
+  const startListening = useCallback((): void => {    
     // Clean up any existing recognition first
     if (recognitionRef.current) {
       try {
@@ -188,36 +186,32 @@ const ChatInterface = () => {
             // In auto-chat mode, ensure we keep listening
             // The recognition.onend handler will handle restarting
           }
-        }, 1000); // Shorter delay for better responsiveness
+        }, 2000); // Shorter delay for better responsiveness
       }
     };
 
     recognition.onend = () => {
+      // Don't restart if auto-chat is off
       if (!isAutoChat) {
         setIsListening(false);
         return;
       }
       
-      // Always try to restart in auto-chat mode
+      // Only proceed with restart if we're still in auto-chat mode
       if (isAutoChat) {
         // Small delay before restarting to prevent rapid reconnection
         const restartDelay = isLoading ? 1000 : 300; // Longer delay if still processing
         
         const restartTimer = setTimeout(() => {
-          if (isAutoChat) { // Double check we're still in auto-chat mode
-            if (recognitionRef.current) {
-              try {
-                recognitionRef.current.stop();
-              } catch (e) {
-                console.log('Error stopping recognition in onend:', e);
-              }
-            }
+          // Double check we're still in auto-chat mode before restarting
+          if (isAutoChat && recognitionRef.current) {
             console.log('Restarting speech recognition...');
+            // Don't call stop() here as it can interfere with the restart
             startListening();
           }
         }, restartDelay);
         
-        // Clean up the timer if component unmounts
+        // Clean up the timer if component unmounts or state changes
         return () => clearTimeout(restartTimer);
       }
       
@@ -294,18 +288,59 @@ const ChatInterface = () => {
     setIsListening(false);
   }, []);
 
+  // Handle mouse down/up for push-to-talk
+  const handleMouseDown = useCallback(() => {
+    if (isLoading) return;
+    startListening();
+  }, [isLoading, startListening]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isLoading) return;
+    stopListening();
+  }, [isLoading, stopListening]);
+
+  // Handle touch events for mobile
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleMouseDown();
+  }, [handleMouseDown]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    handleMouseUp();
+  }, [handleMouseUp]);
+
   const toggleAutoChat = useCallback((): void => {
     const newAutoChatState = !isAutoChat;
     setIsAutoChat(newAutoChatState);
     
     if (newAutoChatState) {
-      if (!isListening) {
-        startListening();
+      // Make sure we're not already listening
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.log('Error stopping existing recognition:', e);
+        }
+        recognitionRef.current = null;
       }
+      
+      // Clear any pending timeouts
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      
+      // Start fresh listening
+      startListening();
     } else {
+      // Clean up completely when turning off auto-chat
       stopListening();
+      
+      // Clear any pending speech synthesis
+      window.speechSynthesis.cancel();
     }
-  }, [isAutoChat, isListening, startListening, stopListening]);
+  }, [isAutoChat, startListening, stopListening]);
 
   // Handle auto-chat mode changes
   useEffect(() => {
@@ -321,10 +356,16 @@ const ChatInterface = () => {
       return () => {
         console.log('Cleaning up auto-chat...');
         clearTimeout(timer);
+        // Stop any ongoing speech synthesis
+        window.speechSynthesis.cancel();
+        // Stop listening if it's running
         stopListening();
       };
     } else {
       console.log('Auto-chat disabled, stopping...');
+      // Stop any ongoing speech synthesis
+      window.speechSynthesis.cancel();
+      // Stop listening if it's running
       stopListening();
     }
   }, [isAutoChat, startListening, stopListening]);
@@ -332,14 +373,25 @@ const ChatInterface = () => {
   useEffect(() => {
     // Cleanup function
     return () => {
+      // Stop any ongoing recognition
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.log('Error stopping recognition on cleanup:', e);
+        }
+        recognitionRef.current = null;
       }
-      if (synthesisRef.current) {
+      
+      // Stop any ongoing speech synthesis
+      if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      
+      // Clear any pending timeouts
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
       }
     };
   }, []);
@@ -404,16 +456,18 @@ const ChatInterface = () => {
         <button
           type="button"
           className={`icon-button ${isListening ? 'active' : ''}`}
-          onClick={isListening ? stopListening : startListening}
-          title={isListening ? 'Stop listening' : 'Start voice input'}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
+          title="Hold to speak"
         >
           <svg viewBox="0 0 24 24" width="24" height="24">
             <path
               fill="currentColor"
-              d={isListening 
-                ? "M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"
-                : "M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"
-              }
+              d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"
             />
           </svg>
         </button>
